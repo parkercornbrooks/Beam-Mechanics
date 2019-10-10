@@ -74,6 +74,27 @@ class DistLoad:
         self.end = end
         self.startForce = startForce
         self.endForce = endForce
+    
+    def resultant(self):
+        ''' returns a tuple with resultant force and location
+        holds true for uniform loads, triangle, and trapezoid'''
+
+        ymin = min(self.startForce, self.endForce)
+        b = (self.end - self.start)
+        
+        F1 = ymin * b
+        d1 = (self.end + self.start) / 2
+        
+        h , d = (self.startForce - self.endForce), 1/3
+        if ymin < self.endForce:
+            h , d = (self.endForce - self.startForce) , 2/3
+        
+        F2 = b * h / 2
+        d2 = self.start + d * b
+
+        R = F1 + F2
+        dr = ((F1 * d1) + (F2 * d2)) / R
+        return (R, dr)
 
 class PointMoment:
     def __init__(self, pos, moment):
@@ -115,19 +136,12 @@ class PinSupport(Support):
 
 
 def main():
-    bm = Beam(10)
-    bm.add_support("fixed", 4)
-    bm.add_support("roller", -5)
-    bm.add_support("pin", 11)
-    bm.add_support("pin", 3)
-    bm.add_support("fixed", 0)
-    bm.add_support("pin", 3)
-    bm.add_support("roller", 9)
-    print(bm)
-    for support in bm.supports:
-        print(support)
+    resultant_test()
     
     
+def resultant_test():
+    f1 = DistLoad(0, 3, 2.5, 0.5)
+    print(f1.resultant())
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,6 @@
 class Beam:
-    def __init__(self, span, units = "m"):
-        self.span = span
+    def __init__(self, length, units = "m"):
+        self.length = length
         self.units = units
         self.point_loads = []
         self.dist_loads = []
@@ -8,7 +8,7 @@ class Beam:
         self.supports = []
     
     def __str__(self):
-        s = f"Beam with length {self.span}{self.units}"
+        s = f"Beam with length {self.length}{self.units}"
         #s += f"\n\t Supports: "
         #s += "None" if len(self.supports) == 0 else str([str(support) for support in self.supports])
         return s
@@ -16,21 +16,48 @@ class Beam:
     def add_pointLoad(self, pos, force):
         self.point_loads.append(PointLoad(pos, force))
 
-    def add_distLoad(self, start, end, force):
-        self.dist_loads.append(DistLoad(start, end, force))
+    def add_uniform_distLoad(self, start, end, force):
+        self.dist_loads.append(DistLoad(start, end, force, force))
+    
+    def add_distLoad(self, start, end, startForce, endForce):
+        self.dist_loads.append(DistLoad(start, end, startForce, endForce))
     
     def add_moment(self, pos, moment):
         self.point_moments.append(PointMoment(pos, moment))
 
-    def add_support(self, type, pos):
-        if type == "roller":
-            self.supports.append(RollerSupport(pos))
-        elif type == "pin":
-            self.supports.append(PinSupport(pos))
-        elif type == "fixed":
-            self.supports.append(FixedSupport(pos))
-    
-
+    def add_support(self, style, pos):
+        check = True
+        if len(self.supports) == 2:
+            print("Adding more than 2 supports is not allowed")
+            check = False
+        elif pos < 0 or pos > self.length:
+            print(f"Support must be within the span of the beam (0-{self.length}m)")
+            check = False
+        elif len(self.supports) == 1:
+            if self.supports[0].unknowns == 3:
+                print("Beam is already fixed. Adding more supports will cause the problem to be indeterminate.")
+                check = False
+            elif style == "fixed":
+                print("Cannot add a fixed support to a beam that already has a support.")
+                check = False
+            elif self.supports[0].pos == pos:
+                print(f"There is already a support at {pos}.")
+                check = False
+        
+        if check:
+            if style == "roller":
+                self.supports.append(RollerSupport(pos))
+                print(f"Roller support added at {pos}.")
+            elif style == "pin":
+                self.supports.append(PinSupport(pos))
+                print(f"Pin support added at {pos}.")
+            elif style == "fixed":
+                if pos not in [0, self.length]:
+                    print(f"Fixed supports can only be added at the end of a beam (0 or {self.length})")
+                else:
+                    self.supports.append(FixedSupport(pos))
+                    print(f"Fixed support added at {pos}.")
+        
 
 def is_indeterminate(beam):
     unknowns = sum([support.unknowns for support in beam.supports])
@@ -61,6 +88,11 @@ class Support:
     
     def __str__(self):
         return f"{self.style} support @ {self.pos}"
+    
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.pos == other.pos
+        return False
 
 class FixedSupport(Support):
     def __init__(self, pos):
@@ -84,11 +116,17 @@ class PinSupport(Support):
 
 def main():
     bm = Beam(10)
+    bm.add_support("fixed", 4)
+    bm.add_support("roller", -5)
+    bm.add_support("pin", 11)
+    bm.add_support("pin", 3)
     bm.add_support("fixed", 0)
-    bm.add_support("roller", 5)
+    bm.add_support("pin", 3)
+    bm.add_support("roller", 9)
     print(bm)
     for support in bm.supports:
         print(support)
+    
     
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+import numpy as np
+
 class Beam:
     def __init__(self, length, units = "m"):
         self.length = length
@@ -14,7 +16,10 @@ class Beam:
         return s
     
     def add_pointLoad(self, pos, force):
-        self.point_loads.append(PointLoad(pos, force))
+        if pos < 0 or pos > self.length:
+            print(f"Force must be within the span of the beam (0-{self.length}m)")
+        else:
+            self.point_loads.append(PointLoad(pos, force))
 
     def add_uniform_distLoad(self, start, end, force):
         self.dist_loads.append(DistLoad(start, end, force, force))
@@ -68,12 +73,25 @@ class PointLoad:
         self.pos = pos
         self.force = force
 
+    def shear(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of shear due to load at each (from L to R)'''
+
+        return np.where(locarray > self.pos, (self.pos), 0)
+
+    def moment(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of moments due to load at each (from L to R)'''
+
+        return np.where(locarray > self.pos, (locarray-self.pos) * self.force, 0)
+
 class DistLoad:
     def __init__(self, start, end, startForce, endForce):
         self.start = start
         self.end = end
         self.startForce = startForce
         self.endForce = endForce
+        (self.force, self.pos) = self.resultant()
     
     def resultant(self):
         ''' returns a tuple with resultant force and location
@@ -100,6 +118,19 @@ class PointMoment:
     def __init__(self, pos, moment):
         self.pos = pos
         self.moment = moment
+
+    def shear(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of shear due to load at each (from L to R)'''
+
+        return np.zeros_like(locarray)
+
+    def moment(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of moments due to load at each (from L to R)'''
+
+        return np.where(locarray > self.pos, self.moment , 0)
+
 
 class Support:
     def __init__(self, style, pos, unknowns):

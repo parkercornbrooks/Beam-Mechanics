@@ -73,13 +73,13 @@ class PointLoad:
         self.pos = pos
         self.force = force
 
-    def shear(self, locarray):
+    def calc_shear(self, locarray):
         '''takes in a numpy array of locations
         returns array of shear due to load at each (from L to R)'''
 
         return np.where(locarray > self.pos, (self.pos), 0)
 
-    def moment(self, locarray):
+    def calc_moment(self, locarray):
         '''takes in a numpy array of locations
         returns array of moments due to load at each (from L to R)'''
 
@@ -92,40 +92,52 @@ class DistLoad:
         self.startForce = startForce
         self.endForce = endForce
         (self.force, self.pos) = self.resultant()
-    
+
     def resultant(self):
-        ''' returns a tuple with resultant force and location
-        holds true for uniform loads, triangle, and trapezoid'''
+        return resultant(self.start, self.end, self.startForce, self.endForce)
+    
+    def calc_shear(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of shear due to load at each (from L to R)'''
 
-        ymin = min(self.startForce, self.endForce)
-        b = (self.end - self.start)
+        sh = np.zeros_like(locarray)
         
-        F1 = ymin * b
-        d1 = (self.end + self.start) / 2
-        
-        h , d = (self.startForce - self.endForce), 1/3
-        if ymin < self.endForce:
-            h , d = (self.endForce - self.startForce) , 2/3
-        
-        F2 = b * h / 2
-        d2 = self.start + d * b
+        # interpolate value of distforce at all locations in locarray
+        forceval = np.interp(locarray, [self.start, self.end],[self.startForce, self.endForce])
+        vresultant = np.vectorize(resultant)
+        (mag, dist) = vresultant(self.start, locarray, self.startForce, forceval)
+        # find resultant at 
+        sh = np.where(np.logical_and(locarray > self.start, locarray <= self.end), mag, sh)
+        sh = np.where(locarray > self.end, self.force, sh)
+        return sh
 
-        R = F1 + F2
-        dr = ((F1 * d1) + (F2 * d2)) / R
-        return (R, dr)
+    def calc_moment(self, locarray):
+        '''takes in a numpy array of locations
+        returns array of moments due to load at each (from L to R)'''
+
+        m = np.zeros_like(locarray)
+        
+        # interpolate value of distforce at all locations in locarray
+        forceval = np.interp(locarray, [self.start, self.end],[self.startForce, self.endForce])
+        vresultant = np.vectorize(resultant)
+        (mag, dist) = vresultant(self.start, locarray, self.startForce, forceval)
+        # find resultant at 
+        m = np.where(np.logical_and(locarray > self.start, locarray <= self.end), mag * (locarray-dist), m)
+        m = np.where(locarray > self.end, self.force * (locarray-self.pos), m)
+        return m
 
 class PointMoment:
     def __init__(self, pos, moment):
         self.pos = pos
         self.moment = moment
 
-    def shear(self, locarray):
+    def calc_shear(self, locarray):
         '''takes in a numpy array of locations
         returns array of shear due to load at each (from L to R)'''
 
         return np.zeros_like(locarray)
 
-    def moment(self, locarray):
+    def calc_moment(self, locarray):
         '''takes in a numpy array of locations
         returns array of moments due to load at each (from L to R)'''
 
@@ -159,20 +171,39 @@ class PinSupport(Support):
         super().__init__(style = "Pin", pos = pos, unknowns = 2)
 
 
+def resultant(x1, x2, y1, y2):
+    ''' returns a tuple with resultant force and location
+    holds true for uniform loads, triangle, and trapezoid'''
 
+    ymin = min(y1, y2)
+    b = (x2 - x1)
+        
+    F1 = ymin * b
+    d1 = (x1 + x2) / 2
+        
+    h , d = (y1 - y2), 1/3
+    if ymin < y2:
+        h , d = (y2 - y1) , 2/3
+        
+    F2 = b * h / 2
+    d2 = x1 + d * b
 
-
-
-
-
+    R = F1 + F2
+    dr = -1. if R == 0 else ((F1 * d1) + (F2 * d2)) / R
+    return (R, dr)
 
 def main():
     resultant_test()
     
     
 def resultant_test():
-    f1 = DistLoad(0, 3, 2.5, 0.5)
-    print(f1.resultant())
+    L = DistLoad(0, 5, 5, 0)
+    x = np.linspace(0, 8, 20)
+    print(x)
+    print(L.calc_shear(x))
+    print(L.calc_moment(x))
+
+
 
 if __name__ == "__main__":
     main()

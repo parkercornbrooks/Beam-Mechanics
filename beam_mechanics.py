@@ -16,6 +16,8 @@ class Beam:
         list of loads applied to beam
     supports : list
         list of beam supports
+    support_reactions : list
+        list of support reactions
     
     Methods
     -------
@@ -46,6 +48,7 @@ class Beam:
         self.units = units
         self.loads = []
         self.supports = []
+        self.support_reactions = []
     
     def __str__(self):
         s = f"Beam with length {self.length}{self.units}"
@@ -111,45 +114,54 @@ class Beam:
         _check_location(self.length, pos)
         self.loads.append(PointMoment(pos, moment))
 
-    def add_support(self, style, pos):
-        """Creates a support and adds it to the supports list
+    def add_fixed_support(self, location = "left"):
+        """Creates a fixed support and adds it to the supports list
 
         Parameters
         ----------
-        style : str
-            the style of support (pin, roller, fixed)
-        pos : float
-            the position on the beam where the moment is applied
+        location : string
+            the position of the fixed support (default "left")
+
+        Returns
+        -------
+        False if beam already has supports
+        True if supports are added
         """
-        _check_location(self.length, pos)
-        check = True
-        if len(self.supports) == 2:
-            print("Adding more than 2 supports is not allowed")
-            check = False
-        elif len(self.supports) == 1:
-            if self.supports[0].unknowns == 3:
-                print("Beam is already fixed. Adding more supports will cause the problem to be indeterminate.")
-                check = False
-            elif style == "fixed":
-                print("Cannot add a fixed support to a beam that already has a support.")
-                check = False
-            elif self.supports[0].pos == pos:
-                print(f"There is already a support at {pos}.")
-                check = False
-        
-        if check:
-            if style == "roller":
-                self.supports.append(RollerSupport(pos))
-                print(f"Roller support added at {pos}.")
-            elif style == "pin":
-                self.supports.append(PinSupport(pos))
-                print(f"Pin support added at {pos}.")
-            elif style == "fixed":
-                if pos not in [0, self.length]:
-                    print(f"Fixed supports can only be added at the end of a beam (0 or {self.length})")
-                else:
-                    self.supports.append(FixedSupport(pos))
-                    print(f"Fixed support added at {pos}.")
+
+        if len(self.supports) > 0:
+            print("Beam already contains supports")
+            return False
+        elif location == "left":
+            pos = 0
+        elif location == "right":
+            pos = self.length
+        else:
+            raise ValueError("Fixed support must be located at 'left' or 'right' of beam")
+        self.supports.append(pos)
+    
+    def add_pin_roller_support(self, pinPos, rollerPos):
+        """Creates a pin/roller support and adds it to the supports list
+
+        Parameters
+        ----------
+        pinPos : float
+            the position of the pin support
+        rollerPos : float
+            the position of the roller support
+
+        Returns
+        -------
+        False if beam already has supports
+        True if supports are added
+        """
+
+        if len(self.supports) > 0:
+            print("Beam already contains supports")
+            return False
+        else:
+            _check_location(self.length, pinPos, rollerPos)
+            self.supports.extend([pinPos, rollerPos])
+            return True
 
     def solve(self, positions = None, N = 100):
         """Solve for the shear and moment values at the given positions

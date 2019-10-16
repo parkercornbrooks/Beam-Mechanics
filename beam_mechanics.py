@@ -4,9 +4,7 @@ class Beam:
     def __init__(self, length, units = "m"):
         self.length = length
         self.units = units
-        self.point_loads = []
-        self.dist_loads = []
-        self.point_moments = []
+        self.loads = []
         self.supports = []
     
     def __str__(self):
@@ -19,16 +17,16 @@ class Beam:
         if pos < 0 or pos > self.length:
             print(f"Force must be within the span of the beam (0-{self.length}m)")
         else:
-            self.point_loads.append(PointLoad(pos, force))
+            self.loads.append(PointLoad(pos, force))
 
     def add_uniform_distLoad(self, start, end, force):
-        self.dist_loads.append(DistLoad(start, end, force, force))
+        self.loads.append(DistLoad(start, end, force, force))
     
     def add_distLoad(self, start, end, startForce, endForce):
-        self.dist_loads.append(DistLoad(start, end, startForce, endForce))
+        self.loads.append(DistLoad(start, end, startForce, endForce))
     
     def add_moment(self, pos, moment):
-        self.point_moments.append(PointMoment(pos, moment))
+        self.loads.append(PointMoment(pos, moment))
 
     def add_support(self, style, pos):
         check = True
@@ -62,7 +60,20 @@ class Beam:
                 else:
                     self.supports.append(FixedSupport(pos))
                     print(f"Fixed support added at {pos}.")
+
+    def solve(self, positions = None, N = 100):
         
+        if positions == None:
+            positions = np.linspace(0, self.length, N)
+        else:
+            positions = np.array(positions, dtype=float)
+        # ToDo: solve for support reactions
+        
+        shear = sum([load.calc_shear(positions) for load in self.loads])
+        moment = sum([load.calc_moment(positions) for load in self.loads])
+        return {"positions" : positions,
+                "moment" : moment,
+                "shear" : shear}
 
 def is_indeterminate(beam):
     unknowns = sum([support.unknowns for support in beam.supports])
@@ -143,7 +154,6 @@ class PointMoment:
 
         return np.where(locarray > self.pos, self.moment , 0)
 
-
 class Support:
     def __init__(self, style, pos, unknowns):
         self.pos = pos
@@ -193,7 +203,8 @@ def resultant(x1, x2, y1, y2):
     return (R, dr)
 
 def main():
-    resultant_test()
+    #resultant_test()
+    solve_test()
     
     
 def resultant_test():
@@ -203,7 +214,11 @@ def resultant_test():
     print(L.calc_shear(x))
     print(L.calc_moment(x))
 
-
+def solve_test():
+    bm = Beam(10)
+    bm.add_pointLoad(5,5)
+    d = bm.solve()
+    print(d["moment"])
 
 if __name__ == "__main__":
     main()

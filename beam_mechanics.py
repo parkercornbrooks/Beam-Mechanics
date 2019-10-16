@@ -29,8 +29,10 @@ class Beam:
         add a distributed load with a given start/end position/force (units in force/length)
     add_moment(pos, moment)
         add a point moment at the given position
-    add_support(style, pos)
-        add a support of given style at the given position
+    add_fixed_support(location)
+        add a fixed support at "left" or "right" side of beam
+    add_pin_roller_support(pinPos, rollerPos)
+        add a pin and a roller suport at the defined positions
     solve(position = None, N = 100)
         solve for the shear and moment values at the given positions
     """
@@ -177,6 +179,7 @@ class Beam:
 
         Returns
         -------
+        False if there are no supports, or more than 2
         dictionary
             keys are "positions", "moment", "shear"
             values are numpy arrays
@@ -187,8 +190,28 @@ class Beam:
         else:  # convert list to numpy array of floats
             positions = np.array(positions, dtype=float)
         
-        # ToDo: solve for support reactions
-        
+        # Solve for support reactions
+        if len(self.supports) == 0:  # no supports
+            print("Beam must be supported before it can be solved")
+            return False
+        elif len(self.supports) == 1:  # fixed support
+            pos = self.supports[0]
+            F_1 = -sum([load.force for load in self.loads])
+            self.support_reactions.append(PointLoad(pos, F_1))
+
+            M_1 = sum([load.force * (pos - load.pos) - load.moment for load in self.loads])
+            self.support_reactions.append(PointMoment(pos, M_1))
+        elif len(self.supports) == 2:  # pin and roller supports
+            pinPos, rollerPos = self.supports
+            F_roller = sum([load.force * (pinpos - load.pos) - load.moment for load in self.loads]) / (pinPos - rollerPos)
+            self.support_reactions.append(PointLoad(rollerPos, F_roller))
+
+            F_pin = -sum([load.force for load in self.loads]) - F_roller
+            self.support_reactions.append(PointLoad(pinPos, F_pin))
+        else:  # more than 2 supports??
+            print("There are more than 2 supports?? Start over.")
+            return False
+
         shear = sum([load.calc_shear(positions) for load in self.loads])
         moment = sum([load.calc_moment(positions) for load in self.loads])
         return {"positions" : positions,

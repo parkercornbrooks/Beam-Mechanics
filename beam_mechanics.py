@@ -187,6 +187,7 @@ class PointLoad:
     def __init__(self, pos, force):
         self.pos = pos
         self.force = force
+        self.moment = 0
 
     def calc_shear(self, locarray):
         '''takes in a numpy array of locations
@@ -205,6 +206,7 @@ class DistLoad:
         self.start, self.end = self._check_loc(start, end)
         self.startForce = startForce
         self.endForce = endForce
+        self.moment = 0
         (self.force, self.pos) = self.resultant()
     
     def _check_loc(self, start, end):
@@ -250,6 +252,7 @@ class DistLoad:
 class PointMoment:
     def __init__(self, pos, moment):
         self.pos = pos
+        self.force = 0
         self.moment = moment
 
     def calc_shear(self, locarray):

@@ -190,6 +190,7 @@ class Beam:
         else:  # convert list to numpy array of floats
             positions = np.array(positions, dtype=float)
         
+        self.support_reactions = []
         # Solve for support reactions
         if len(self.supports) == 0:  # no supports
             print("Beam must be supported before it can be solved")
@@ -203,7 +204,7 @@ class Beam:
             self.support_reactions.append(PointMoment(pos, M_1))
         elif len(self.supports) == 2:  # pin and roller supports
             pinPos, rollerPos = self.supports
-            F_roller = sum([load.force * (pinpos - load.pos) - load.moment for load in self.loads]) / (pinPos - rollerPos)
+            F_roller = sum([load.force * (pinPos - load.pos) - load.moment for load in self.loads]) / (rollerPos - pinPos)
             self.support_reactions.append(PointLoad(rollerPos, F_roller))
 
             F_pin = -sum([load.force for load in self.loads]) - F_roller
@@ -212,8 +213,10 @@ class Beam:
             print("There are more than 2 supports?? Start over.")
             return False
 
-        shear = sum([load.calc_shear(positions) for load in self.loads])
-        moment = sum([load.calc_moment(positions) for load in self.loads])
+        all_loads = self.loads + self.support_reactions
+
+        shear = sum([load.calc_shear(positions) for load in all_loads])
+        moment = sum([load.calc_moment(positions) for load in all_loads])
         return {"positions" : positions,
                 "moment" : moment,
                 "shear" : shear}
@@ -224,11 +227,14 @@ class PointLoad:
         self.force = force
         self.moment = 0
 
+    def __str__(self):
+        return f"Point Load of force {self.force} at {self.pos}m"
+
     def calc_shear(self, locarray):
         '''takes in a numpy array of locations
         returns array of shear due to load at each (from L to R)'''
 
-        return np.where(locarray > self.pos, (self.pos), 0)
+        return np.where(locarray > self.pos, (self.force), 0)
 
     def calc_moment(self, locarray):
         '''takes in a numpy array of locations
@@ -244,6 +250,9 @@ class DistLoad:
         self.moment = 0
         (self.force, self.pos) = self.resultant()
     
+    def __str__(self):
+        return f"Distributed Load from {self.start}-{self.end}m, force ({self.startForce})-({self.endForce})"
+
     def _check_loc(self, start, end):
         if start == end:
             raise ValueError("Start and end positions must be different")
@@ -289,6 +298,9 @@ class PointMoment:
         self.pos = pos
         self.force = 0
         self.moment = moment
+    
+    def __str__(self):
+        return f"Point Moment of {self.moment} at {self.pos}m"
 
     def calc_shear(self, locarray):
         '''takes in a numpy array of locations
@@ -300,7 +312,7 @@ class PointMoment:
         '''takes in a numpy array of locations
         returns array of moments due to load at each (from L to R)'''
 
-        return np.where(locarray > self.pos, self.moment , 0)
+        return np.where(locarray > self.pos, -self.moment , 0)
 
 class Support:
     def __init__(self, style, pos, unknowns):

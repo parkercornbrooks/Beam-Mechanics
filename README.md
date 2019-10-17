@@ -5,19 +5,29 @@ Allows the user to add
 - A beam with defined length
 - Supports
     - Fixed (wall)
-    - Pin
-    - Roller
-    - Note: only allows one fixed or 2 other (fx calculations are ignored)
+    - Pin and Roller combination
 - Loads
     - Point Load
     - Distributed Load - either uniform, triangle, or trapezoidal
     - Point Moment
 
 
-TODO
-- checks for adding loads
-    - ensure they are within beam span
-    - make sure distload start and endforce are of same sign
-- update support check to allow for only either fixed or pin/roller combo
-- calculation of support reactions
-- solve for shear/moment diagrams
+# Examples of Use:
+
+- Instantiate a beam
+        <beam = Beam(10)>
+
+- Add a fixed support
+        <beam.add_fixed_support(location = "right")>
+
+- Add loads
+        <beam.add_pointLoad(7, -8)>
+        <beam.add_distLoad(0, 4, -2, -5)>
+
+- Solve, returns a dict with keys "positions", "moment", "shear" and arrays as values
+        <sol = beam.solve(N = 50)>
+
+
+# TODO
+- Add plotting tools
+

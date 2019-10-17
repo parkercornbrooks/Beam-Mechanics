@@ -53,10 +53,7 @@ class Beam:
         self.support_reactions = []
     
     def __str__(self):
-        s = f"Beam with length {self.length}{self.units}"
-        #s += f"\n\t Supports: "
-        #s += "None" if len(self.supports) == 0 else str([str(support) for support in self.supports])
-        return s
+        return f"Beam with length {self.length}{self.units}"
     
     def add_pointLoad(self, pos, force):
         """Creates a point load and adds it to the loads list
@@ -165,7 +162,7 @@ class Beam:
             self.supports.extend([pinPos, rollerPos])
             return True
 
-    def solve(self, positions = None, N = 100):
+    def solve(self, positions = None, N = 100, pointsofinterest = True):
         """Solve for the shear and moment values at the given positions
 
         Parameters
@@ -176,7 +173,9 @@ class Beam:
         N : int, optional
             the number of positions to solve within the linear spaced array (default 100)
             if positions are given, this value is not used
-
+        pointsofinterest : bool, optional
+            whether to include more specificity at loading and support points
+            only added if no positions are provided, default is True
         Returns
         -------
         False if there are no supports, or more than 2
@@ -185,12 +184,26 @@ class Beam:
             values are numpy arrays
         """
 
-        if positions == None:
+        if positions == None: # create array of positions
             positions = np.linspace(0, self.length, N)
+            if pointsofinterest:
+                specificity = .00001
+                pointsOI = list(self.supports)
+                for load in self.loads:
+                    if isinstance(load, DistLoad):
+                        pointsOI.extend([load.start, load.end])
+                    else:
+                        pointsOI.append(load.pos)
+                for point in pointsOI:
+                    to_add = [point + specificity if np.isin(point, positions) else point, point + specificity]
+                    idx = positions.searchsorted(point + specificity)
+                    positions = np.concatenate((positions[:idx], to_add, positions[idx:]))
+
         else:  # convert list to numpy array of floats
             positions = np.array(positions, dtype=float)
         
         self.support_reactions = []
+
         # Solve for support reactions
         if len(self.supports) == 0:  # no supports
             print("Beam must be supported before it can be solved")
@@ -222,7 +235,34 @@ class Beam:
                 "shear" : shear}
 
 class PointLoad:
+    """
+    A class used to represent a Point Load
+
+    ...
+
+    Atrributes
+    ----------
+    pos : float
+        the position of the load
+    force : float
+        the force of the load
+    
+    Methods
+    -------
+    calc_shear(locarray)
+        returns the value of the shear due to load at all positions in the locarray
+    calc_moment(locarray)
+        returns the value of the moment due to load at all positions in the locarray
+    """
     def __init__(self, pos, force):
+        """
+        Parameters
+        ----------
+        pos : float
+            the position of the load
+        force : float
+            the magnitude and direction of the force
+        """
         self.pos = pos
         self.force = force
         self.moment = 0
@@ -231,41 +271,119 @@ class PointLoad:
         return f"Point Load of force {self.force} at {self.pos}m"
 
     def calc_shear(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of shear due to load at each (from L to R)'''
+        """ Calculates shear at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of shear due to this load at each position given
+        """
 
         return np.where(locarray > self.pos, (self.force), 0)
 
     def calc_moment(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of moments due to load at each (from L to R)'''
+        """ Calculates bending moment at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of moments due to this load at each position given
+        """
 
         return np.where(locarray > self.pos, (locarray-self.pos) * self.force, 0)
 
 class DistLoad:
+    """
+    A class used to represent a Distributed Load
+
+    ...
+
+    Atrributes
+    ----------
+    start : float
+        the position of start of the distributed load
+    end : float
+        the position of the end of the distributed load
+    startForce : float
+        the force at the start of the distributed load
+    endForce : float
+        the force at the end of the distributed load
+    
+    Methods
+    -------
+    _check_loc(start, end)
+        ensures that start < end and they are not equal
+    calc_shear(locarray)
+        returns the value of the shear due to load at all positions in the locarray
+    calc_moment(locarray)
+        returns the value of the moment due to load at all positions in the locarray
+    """
     def __init__(self, start, end, startForce, endForce):
+        """
+        Parameters
+        ----------
+        start : float
+            the starting position of the load
+        end : float
+            the starting position of the load
+        startForce : float
+            the magnitude and direction of the force at the start of the load
+        endForce : float
+            the magnitude and direction of the force at the end of the load
+        """
         self.start, self.end = self._check_loc(start, end)
         self.startForce = startForce
         self.endForce = endForce
         self.moment = 0
-        (self.force, self.pos) = self.resultant()
+        (self.force, self.pos) = resultant(self.start, self.end, self.startForce, self.endForce)
     
     def __str__(self):
         return f"Distributed Load from {self.start}-{self.end}m, force ({self.startForce})-({self.endForce})"
 
     def _check_loc(self, start, end):
+        """ Check the given start and end locations to ensure correct format
+
+        Parameters
+        ----------
+        start : float
+            given start position when initialized
+        end : float
+            given end position when initialized
+
+        Returns
+        -------
+        tuple of properly ordered start and end values
+
+        Raises
+        ------
+        ValueError if start and end values are equal
+        """
         if start == end:
             raise ValueError("Start and end positions must be different")
         if start > end:
             start, end = end, start
         return start, end
-
-    def resultant(self):
-        return resultant(self.start, self.end, self.startForce, self.endForce)
     
     def calc_shear(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of shear due to load at each (from L to R)'''
+        """ Calculates shear at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of shear due to this load at each position given
+        """
 
         sh = np.zeros_like(locarray)
         
@@ -279,8 +397,17 @@ class DistLoad:
         return sh
 
     def calc_moment(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of moments due to load at each (from L to R)'''
+        """ Calculates bending moment at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of moments due to this load at each position given
+        """
 
         m = np.zeros_like(locarray)
         
@@ -294,7 +421,34 @@ class DistLoad:
         return m
 
 class PointMoment:
+    """
+    A class used to represent a Point Moment
+
+    ...
+
+    Atrributes
+    ----------
+    pos : float
+        the position of the moment
+    moment : float
+        the magnitude and direction of the moment
+    
+    Methods
+    -------
+    calc_shear(locarray)
+        returns the value of the shear due to moment at all positions in the locarray
+    calc_moment(locarray)
+        returns the value of the moment due to this moment at all positions in the locarray
+    """
     def __init__(self, pos, moment):
+        """
+        Parameters
+        ----------
+        pos : float
+            the position of the moment
+        moment : float
+            the magnitude and direction of the moment
+        """
         self.pos = pos
         self.force = 0
         self.moment = moment
@@ -303,42 +457,34 @@ class PointMoment:
         return f"Point Moment of {self.moment} at {self.pos}m"
 
     def calc_shear(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of shear due to load at each (from L to R)'''
+        """ Calculates shear at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of shear due to this load at each position given
+        """
 
         return np.zeros_like(locarray)
 
     def calc_moment(self, locarray):
-        '''takes in a numpy array of locations
-        returns array of moments due to load at each (from L to R)'''
+        """ Calculates bending moment at defined points on the beam
+
+        Parameters
+        ----------
+        locarray : numpy array
+            array of positions on the beam
+
+        Returns
+        -------
+        Array of moments due to this load at each position given
+        """
 
         return np.where(locarray > self.pos, -self.moment , 0)
-
-class Support:
-    def __init__(self, style, pos, unknowns):
-        self.pos = pos
-        self.unknowns = unknowns
-        self.style = style
-    
-    def __str__(self):
-        return f"{self.style} support @ {self.pos}"
-    
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.pos == other.pos
-        return False
-
-class FixedSupport(Support):
-    def __init__(self, pos):
-        super().__init__(style = "Fixed", pos = pos, unknowns = 3)
-
-class RollerSupport(Support):
-    def __init__(self, pos):
-        super().__init__(style = "Roller", pos = pos, unknowns = 1)
-
-class PinSupport(Support):
-    def __init__(self, pos):
-        super().__init__(style = "Pin", pos = pos, unknowns = 2)
 
 
 def resultant(x1, x2, y1, y2):
@@ -382,12 +528,21 @@ def resultant(x1, x2, y1, y2):
 def _check_location(length, *points):
     """ Checks all points to see if they fall within [0,length]
     
-    Raises ValueError if any point falls out of bounds
+    Parameters
+    ----------
+    length : float
+        the length of the beam
+    *points : float
+        variable number of points to be checked
+    
+    Raises
+    ------
+    Value Error if points fall outside of beam span
     """
+
     for point in points:
         if point < 0 or point > length:
             raise ValueError(f"Point {point} is not located on the beam of length 0-{length}")
-
 
 
 def main():

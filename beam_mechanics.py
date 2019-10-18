@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Beam:
     """
@@ -543,6 +544,15 @@ def _check_location(length, *points):
     for point in points:
         if point < 0 or point > length:
             raise ValueError(f"Point {point} is not located on the beam of length 0-{length}")
+
+def plot(beam):
+    """ Produce a plot of the shear and moment along the span of the beam
+
+    Parameters
+    ----------
+    beam : Beam
+        a fully defined Beam object with loads and supports
+    """
 
 
 def main():

@@ -11,6 +11,8 @@ Allows the user to add
     - Distributed Load - either uniform, triangle, or trapezoidal
     - Point Moment
 
+# Dependencies
+This code uses numpy and matplotlib.pyplot
 
 # Examples of Use
 
@@ -31,7 +33,14 @@ Allows the user to add
 
         solution = beam.solve(N = 50)
 
+- Plot the resulting shear/moment diagram
+
+        bm.plot(solution)
 
 # TODO
-- Add plotting tools
+- add beam loading diagram to plot
+- add enhanced functionality to plot
+    - points of interest
+    - markers at each point
+    - vertical markers for loads and supports
 

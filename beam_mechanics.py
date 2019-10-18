@@ -545,14 +545,32 @@ def _check_location(length, *points):
         if point < 0 or point > length:
             raise ValueError(f"Point {point} is not located on the beam of length 0-{length}")
 
-def plot(beam):
+def plot(solved_dict):
     """ Produce a plot of the shear and moment along the span of the beam
 
     Parameters
     ----------
-    beam : Beam
-        a fully defined Beam object with loads and supports
+    solved_dict : dict
+        the return of the beam.solve() method
     """
+    linecolor = 'blue'
+    x, y1, y2 = solved_dict["positions"], solved_dict["shear"], solved_dict["moment"]
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8,12))
+    
+    ax1.plot(x, y1, color=linecolor, linewidth=2.5)
+    ax1.fill_between(x, 0, y1, facecolor="gray", alpha=0.3)
+    ax1.set_title("Shear", fontsize=18)
+    ax1.set_ylabel("Shear (N)", fontsize=14)
+    ax1.axhline(y=0, color='black')
+    
+    ax2.plot(x, y2, color=linecolor, linewidth=2.5)
+    ax2.fill_between(x, 0, y2, facecolor="gray", alpha=0.3)
+    ax2.set_title("Moment", fontsize=18)
+    ax2.set_ylabel("Moment (N-m)", fontsize=14)
+    ax2.set_xlabel("Position (m)", fontsize=14)
+    ax2.axhline(y=0, color='black')
+    plt.show()
 
 
 def main():
